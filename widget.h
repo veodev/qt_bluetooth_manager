@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <qbluetoothlocaldevice.h>
 #include <qbluetoothdevicediscoveryagent.h>
+#include <QTimer>
 
 namespace Ui
 {
@@ -28,11 +29,24 @@ private slots:
 
     void on_offButton_released();
 
+    void on_pairButton_released();
+    void onPairingFinished(const QBluetoothAddress& address, QBluetoothLocalDevice::Pairing pairing);
+
+    void on_speakerOnButton_released();
+
+    void on_speakerOffButton_released();
+
+    void on_btAudioOnButton_released();
+
+    void on_btAudioOffButton_released();
+    void onCheckBtScoTimeout();
+
 private:
     Ui::Widget* ui;
 
     QBluetoothDeviceDiscoveryAgent* _discoveryAgent;
     QBluetoothLocalDevice* _localDevice;
+    QTimer _checkTimer;
 };
 
 #endif  // WIDGET_H
