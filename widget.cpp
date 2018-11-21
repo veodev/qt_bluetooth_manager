@@ -4,22 +4,29 @@
 #include <QtAndroidExtras>
 #include <QDebug>
 
+
 Widget::Widget(QWidget* parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
+    , _mediaPlayer(new QMediaPlayer(this))
 {
     ui->setupUi(this);
+    QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "enableBluetooth", "()Z");
+    QtAndroid::runOnAndroidThread([] {
+        QAndroidJniObject jniObject("BluetoothClass");
+        jniObject.callMethod<void>("registerBroadcast", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
+    });
+
     _discoveryAgent = new QBluetoothDeviceDiscoveryAgent(this);
     _localDevice = new QBluetoothLocalDevice(this);
 
     connect(_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered, this, &Widget::onAddDevice);
     connect(_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished, this, &Widget::onScanFinished);
     connect(_discoveryAgent, QOverload<QBluetoothDeviceDiscoveryAgent::Error>::of(&QBluetoothDeviceDiscoveryAgent::error), this, &Widget::onBluetoothError);
-
     connect(_localDevice, &QBluetoothLocalDevice::pairingFinished, this, &Widget::onPairingFinished);
 
-    connect(&_checkTimer, &QTimer::timeout, this, &Widget::onCheckBtScoTimeout);
-    _checkTimer.start(1000);
+    _mediaPlayer->setMedia(QUrl::fromLocalFile("/sdcard/Music/Synthya - Be Free.mp3"));
+    _mediaPlayer->setVolume(100);
 }
 
 Widget::~Widget()
@@ -56,12 +63,12 @@ void Widget::onBluetoothError(QBluetoothDeviceDiscoveryAgent::Error error)
 
 void Widget::on_onButton_released()
 {
-    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "enableBluetooth", "(Landroid/content/Context;)Z", QtAndroid::androidContext().object());
+    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "enableBluetooth", "()Z");
 }
 
 void Widget::on_offButton_released()
 {
-    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "disableBluetooth", "(Landroid/content/Context;)Z", QtAndroid::androidContext().object());
+    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "disableBluetooth", "()Z");
 }
 
 void Widget::on_pairButton_released()
@@ -69,6 +76,7 @@ void Widget::on_pairButton_released()
     if (ui->listWidget->currentRow() == -1) {
         return;
     }
+    _discoveryAgent->stop();
     QString itemStr = ui->listWidget->currentItem()->text();
     QString address = itemStr.split(" ").first();
     qDebug() << "ADDRESS: " << address;
@@ -80,27 +88,17 @@ void Widget::onPairingFinished(const QBluetoothAddress& address, QBluetoothLocal
     qDebug() << "Pairing with: " << address;
 }
 
-void Widget::on_speakerOnButton_released()
+void Widget::on_musicOnButton_released()
 {
-    QAndroidJniObject::callStaticMethod<void>("BluetoothClass", "enableSpeakerphone", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
+    _mediaPlayer->play();
 }
 
-void Widget::on_speakerOffButton_released()
+void Widget::on_musicOffButton_released()
 {
-    QAndroidJniObject::callStaticMethod<void>("BluetoothClass", "disableSpeakerphone", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
+    _mediaPlayer->pause();
 }
 
-void Widget::on_btAudioOnButton_released()
+void Widget::on_settingsButton_released()
 {
-    QAndroidJniObject::callStaticMethod<void>("BluetoothClass", "enableBluetoothAudio", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
-}
-
-void Widget::on_btAudioOffButton_released()
-{
-    QAndroidJniObject::callStaticMethod<void>("BluetoothClass", "disableBluetoothAudio", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
-}
-
-void Widget::onCheckBtScoTimeout()
-{
-    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "isBluetoothScoOn", "(Landroid/content/Context;)Z", QtAndroid::androidContext().object());
+    QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "openBluetoothNativeSettings", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
 }

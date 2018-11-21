@@ -1,70 +1,116 @@
 import android.content.Context;
-import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioManager;
-import android.os.SystemClock;
+import android.media.MediaPlayer;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothSocket;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothProfile.ServiceListener;
+import android.bluetooth.BluetoothA2dp;
+import android.os.ParcelUuid;
+import java.util.UUID;
+import java.lang.reflect.Method;
+import android.util.Log;
+import android.bluetooth.BluetoothProfile;
+import android.provider.Settings;
 
-public class BluetoothClass {
-    public static boolean enableBluetooth(Context context)
+public class BluetoothClass {    
+    BluetoothA2dp bluetoothA2dp;
+    MediaPlayer mediaPlayer = null;
+    final BluetoothProfile.ServiceListener btServiceListener = new BluetoothProfile.ServiceListener() {
+        public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (profile == BluetoothProfile.A2DP) {
+                Log.d("", "===================== A2DP SERVICE CONNECTED!!!");
+                bluetoothA2dp = (BluetoothA2dp) proxy;
+//                resetAudioManager(audioManager);
+            }
+        }
+
+        public void onServiceDisconnected(int profile) {
+            if (profile == BluetoothProfile.A2DP) {
+                Log.d("", "===================== A2DP SERVICE DISCONNECTED!!!");
+                bluetoothA2dp = null;
+            }
+        }
+    };
+
+    public static boolean enableBluetooth()
     {
-        BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
-        return btAdapter.enable();
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        return bluetoothAdapter.enable();
     }
 
-    public static boolean disableBluetooth(Context context)
-    {
-        BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
-        return btAdapter.disable();
+    public static boolean disableBluetooth()
+    {        
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        return bluetoothAdapter.disable();
     }
 
-    public static void enableSpeakerphone(Context context)
+    private static void resetAudioManager(AudioManager audioManager)
     {
-        AudioManager audioManager = (AudioManager) context.getSystemService(context.AUDIO_SERVICE);
-        audioManager.setMode(AudioManager.MODE_NORMAL);
-        audioManager.stopBluetoothSco();
-        audioManager.setBluetoothScoOn(false);
-        audioManager.setSpeakerphoneOn(true);
-        System.out.println("EnableSpeakerphone");
-
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.stopBluetoothSco();
+            audioManager.setBluetoothScoOn(false);
+            audioManager.setSpeakerphoneOn(false);
+            audioManager.setWiredHeadsetOn(false);
+        }
     }
 
-    public static void disableSpeakerphone(Context context)
+    public void registerBroadcast(Context context)
     {
-        AudioManager audioManager = (AudioManager) context.getSystemService(context.AUDIO_SERVICE);
-        audioManager.setSpeakerphoneOn(false);
-        System.out.println("DisableSpeakerphone");
+        mediaPlayer = new MediaPlayer();
+        try {
+            mediaPlayer.setDataSource("/sdcard/Music/Synthya - Be Free.mp3");
+            mediaPlayer.prepare();
+            }
+        catch (Exception e) {
+        }
+
+        BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                        String action = intent.getAction();
+                        BluetoothDevice bluetoothDevice;
+                        if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
+                            bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                            bluetoothAdapter.getProfileProxy(context, btServiceListener, BluetoothProfile.A2DP);
+                            Log.d("", "PAIRED: " + bluetoothDevice.getAddress());
+                            Method connect;
+                            try {
+                                connect = BluetoothA2dp.class.getDeclaredMethod("connect", BluetoothDevice.class);
+                                connect.invoke(bluetoothA2dp, bluetoothDevice);
+                            }
+                            catch (Exception e) {
+                            }
+                        }
+                    }
+                };
+
+            IntentFilter intentFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+            context.registerReceiver(broadcastReceiver, intentFilter);
     }
 
-    public static void enableBluetoothAudio(Context context)
+    public void playMusic()
     {
-        AudioManager audioManager = (AudioManager) context.getSystemService(context.AUDIO_SERVICE);
-        audioManager.setMode(0);
-        audioManager.setBluetoothScoOn(true);
-        audioManager.startBluetoothSco();
-        audioManager.setMode(AudioManager.MODE_NORMAL);
-        audioManager.setSpeakerphoneOn(true);
-        System.out.println("EnableBluetoothAudio");
+        if (mediaPlayer != null) {
+            mediaPlayer.start();
+        }
     }
 
-    public static void disableBluetoothAudio(Context context)
+    public void stopMusic()
     {
-        AudioManager audioManager = (AudioManager) context.getSystemService(context.AUDIO_SERVICE);
-
-        audioManager.setBluetoothScoOn(false);
-        audioManager.stopBluetoothSco();
-        System.out.println("DisableBluetoothAudio");
+        if (mediaPlayer != null) {
+            mediaPlayer.pause();
+        }
     }
 
-    public static boolean isBluetoothScoOn(Context context)
+    public static void openBluetoothNativeSettings(Context context)
     {
-        AudioManager audioManager = (AudioManager) context.getSystemService(context.AUDIO_SERVICE);
-//        boolean res = audioManager.isBluetoothScoOn();
-//        System.out.println("BluetoothSco");
-//        System.out.println(res);
-        System.out.println("WIRED HEADSET: " + audioManager.isWiredHeadsetOn());
-        System.out.println("BLUETOOTH SCO: " + audioManager.isBluetoothScoOn());
-        System.out.println("SPEAKERPHONE: " + audioManager.isSpeakerphoneOn());
-        System.out.println("=============================================");
-
-        return true;
+        context.startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
     }
 }
