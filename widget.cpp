@@ -3,6 +3,7 @@
 #include <QAndroidJniEnvironment>
 #include <QtAndroidExtras>
 #include <QDebug>
+#include <QBluetoothUuid>
 
 
 Widget::Widget(QWidget* parent)
@@ -22,11 +23,16 @@ Widget::Widget(QWidget* parent)
 
     connect(_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered, this, &Widget::onAddDevice);
     connect(_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished, this, &Widget::onScanFinished);
+    connect(_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::canceled, this, &Widget::onScanCanceled);
     connect(_discoveryAgent, QOverload<QBluetoothDeviceDiscoveryAgent::Error>::of(&QBluetoothDeviceDiscoveryAgent::error), this, &Widget::onBluetoothError);
     connect(_localDevice, &QBluetoothLocalDevice::pairingFinished, this, &Widget::onPairingFinished);
+    _localDevice->setHostMode(QBluetoothLocalDevice::HostConnectable);
 
     _mediaPlayer->setMedia(QUrl::fromLocalFile("/sdcard/Music/Synthya - Be Free.mp3"));
     _mediaPlayer->setVolume(100);
+
+    connect(&_timer, &QTimer::timeout, this, &Widget::onCheckConnection);
+    _timer.start(3000);
 }
 
 Widget::~Widget()
@@ -50,6 +56,16 @@ void Widget::onAddDevice(const QBluetoothDeviceInfo& info)
 
 void Widget::onScanFinished()
 {
+    qDebug() << "SCAN FINISHED!";
+    _localDevice->setHostMode(QBluetoothLocalDevice::HostConnectable);
+    ui->scanButton->setEnabled(true);
+    ui->pairButton->setEnabled(true);
+}
+
+void Widget::onScanCanceled()
+{
+    qDebug() << "SCAN CANCELED!";
+    _localDevice->setHostMode(QBluetoothLocalDevice::HostConnectable);
     ui->scanButton->setEnabled(true);
     ui->pairButton->setEnabled(true);
 }
@@ -101,4 +117,23 @@ void Widget::on_musicOffButton_released()
 void Widget::on_settingsButton_released()
 {
     QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "openBluetoothNativeSettings", "(Landroid/content/Context;)V", QtAndroid::androidContext().object());
+}
+
+void Widget::on_getPairedButton_released()
+{
+    QAndroidJniObject resString = QAndroidJniObject::callStaticObjectMethod("BluetoothClass", "getPairedDevices", "()Ljava/lang/String;");
+    QString pairedDevices = resString.toString();
+    QStringList splitQtString = pairedDevices.split("|");
+    splitQtString.removeLast();
+    qDebug() << "PAIRED DEVICES:";
+    for (QString item : splitQtString) {
+        qDebug() << item;
+    }
+}
+
+void Widget::onCheckConnection()
+{
+    bool res = QAndroidJniObject::callStaticMethod<jboolean>("BluetoothClass", "isBluetoothConnected", "()Z");
+    res ? ui->a2dpLabel->setText("A2DP: ON") : ui->a2dpLabel->setText("A2DP: OFF");
+    qDebug() << "A2DP: " << res;
 }

@@ -11,19 +11,22 @@ import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile.ServiceListener;
 import android.bluetooth.BluetoothA2dp;
 import android.os.ParcelUuid;
-import java.util.UUID;
-import java.lang.reflect.Method;
 import android.util.Log;
 import android.bluetooth.BluetoothProfile;
 import android.provider.Settings;
+import java.util.UUID;
+import java.lang.reflect.Method;
+import java.util.Set;
 
 public class BluetoothClass {    
-    BluetoothA2dp bluetoothA2dp;
-    MediaPlayer mediaPlayer = null;
+    BluetoothA2dp bluetoothA2dp = null;
+    static MediaPlayer mediaPlayer = mediaPlayer = new MediaPlayer();
+    static BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
     final BluetoothProfile.ServiceListener btServiceListener = new BluetoothProfile.ServiceListener() {
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
             if (profile == BluetoothProfile.A2DP) {
-                Log.d("", "===================== A2DP SERVICE CONNECTED!!!");
+                Log.d("", "===================== A2DP SERVICE CONNECTED!!!");                                
                 bluetoothA2dp = (BluetoothA2dp) proxy;
 //                resetAudioManager(audioManager);
             }
@@ -38,14 +41,13 @@ public class BluetoothClass {
     };
 
     public static boolean enableBluetooth()
-    {
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    {        
         return bluetoothAdapter.enable();
     }
 
     public static boolean disableBluetooth()
     {        
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+//        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         return bluetoothAdapter.disable();
     }
 
@@ -61,8 +63,7 @@ public class BluetoothClass {
     }
 
     public void registerBroadcast(Context context)
-    {
-        mediaPlayer = new MediaPlayer();
+    {        
         try {
             mediaPlayer.setDataSource("/sdcard/Music/Synthya - Be Free.mp3");
             mediaPlayer.prepare();
@@ -73,7 +74,7 @@ public class BluetoothClass {
         BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent intent) {
-                        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+//                        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                         String action = intent.getAction();
                         BluetoothDevice bluetoothDevice;
                         if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
@@ -88,10 +89,18 @@ public class BluetoothClass {
                             catch (Exception e) {
                             }
                         }
+                        else if (action.equals(BluetoothDevice.ACTION_ACL_CONNECTED)) {
+                            Log.d("", "============ ACTION_ACL_CONNECTED");
+                        }
+                        else if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED)) {
+                            Log.d("", "============ ACTION_ACL_DISCONNECTED");
+                        }
                     }
                 };
 
             IntentFilter intentFilter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+            intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+            intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
             context.registerReceiver(broadcastReceiver, intentFilter);
     }
 
@@ -112,5 +121,20 @@ public class BluetoothClass {
     public static void openBluetoothNativeSettings(Context context)
     {
         context.startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+    }
+
+    public static String getPairedDevices()
+    {
+        String pairedDevices = new String();
+        Set<BluetoothDevice> setPairedDevices = bluetoothAdapter.getBondedDevices();
+        for (BluetoothDevice bluetoothDevice: setPairedDevices) {
+            pairedDevices = pairedDevices.concat(bluetoothDevice.getAddress()).concat(" ").concat(bluetoothDevice.getName()).concat("|");
+        }
+        return pairedDevices;
+    }
+
+    public static boolean isBluetoothConnected()
+    {
+        return bluetoothAdapter.isEnabled() && (bluetoothAdapter.getProfileConnectionState(BluetoothProfile.A2DP) == BluetoothProfile.STATE_CONNECTED);
     }
 }

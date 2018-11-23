@@ -211,6 +211,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="getPairedButton">
+         <property name="text">
+          <string>Get Paired</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -228,9 +235,9 @@
     </layout>
    </item>
    <item>
-    <widget class="QLabel" name="btScoLabel">
+    <widget class="QLabel" name="a2dpLabel">
      <property name="text">
-      <string>BtSco: OFF</string>
+      <string>A2DP: OFF</string>
      </property>
     </widget>
    </item>
